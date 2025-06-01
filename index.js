@@ -8,17 +8,19 @@ const config = {
 };
 
 const client = new line.Client(config);
-const app = express();  // ← これ必須
-app.use(express.json()); // JSONの読み込みも忘れずに！
+const app = express();
+app.use(express.json());
 
-// LINEからのWebhookを受け取る場所
-app.post('/webhook', line.middleware(config), (req, res) => {
-  Promise.all(req.body.events.map(handleEvent))
-    .then((result) => res.json(result))
-    .catch((err) => {
-      console.error('Webhook error:', err);
-      res.status(500).end();
-    });
+// LINEからのメッセージを受け取ってChatGPTへ
+app.post('/webhook', line.middleware(config), async (req, res) => {
+  try {
+    const events = req.body.events;
+    const results = await Promise.all(events.map(handleEvent));
+    res.json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).end();
+  }
 });
 
 async function getChatGPTResponse(userText) {
@@ -37,19 +39,18 @@ async function getChatGPTResponse(userText) {
       }
     );
     return res.data.choices[0].message.content.trim();
-  } catch (error) {
-    console.error('ChatGPT error:', error.response?.data || error.message);
-    return 'すみません、ちょっと調子が悪いみたいです。';
+  } catch (err) {
+    console.error('ChatGPT error:', err.response?.data || err.message);
+    return 'ChatGPTが反応してません';
   }
 }
 
 async function handleEvent(event) {
   if (event.type !== 'message' || event.message.type !== 'text') {
-    return Promise.resolve(null);
+    return;
   }
 
   const replyText = await getChatGPTResponse(event.message.text);
-
   return client.replyMessage(event.replyToken, {
     type: 'text',
     text: replyText,
@@ -58,5 +59,5 @@ async function handleEvent(event) {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Listening on ${port}`);
 });
