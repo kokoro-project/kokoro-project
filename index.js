@@ -1,5 +1,5 @@
+const express = require('express');
 const axios = require('axios');
-
 const line = require('@line/bot-sdk');
 
 const config = {
@@ -8,6 +8,19 @@ const config = {
 };
 
 const client = new line.Client(config);
+const app = express();  // ← これ必須
+app.use(express.json()); // JSONの読み込みも忘れずに！
+
+// LINEからのWebhookを受け取る場所
+app.post('/webhook', line.middleware(config), (req, res) => {
+  Promise.all(req.body.events.map(handleEvent))
+    .then((result) => res.json(result))
+    .catch((err) => {
+      console.error('Webhook error:', err);
+      res.status(500).end();
+    });
+});
+
 async function getChatGPTResponse(userText) {
   try {
     const res = await axios.post(
@@ -23,7 +36,6 @@ async function getChatGPTResponse(userText) {
         }
       }
     );
-
     return res.data.choices[0].message.content.trim();
   } catch (error) {
     console.error('ChatGPT error:', error.response?.data || error.message);
@@ -36,7 +48,6 @@ async function handleEvent(event) {
     return Promise.resolve(null);
   }
 
-  const userText = event.message.text;
   const replyText = await getChatGPTResponse(event.message.text);
 
   return client.replyMessage(event.replyToken, {
@@ -44,6 +55,7 @@ async function handleEvent(event) {
     text: replyText,
   });
 }
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
