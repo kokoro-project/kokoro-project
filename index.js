@@ -1,35 +1,38 @@
-const express = require('express');
-const line = require('@line/bot-sdk');
+const axios = require('axios');
 
-const config = {
-  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
-};
+async function getChatGPTResponse(userText) {
+  try {
+    const res = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: userText }],
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
 
-const app = express();
-const port = process.env.PORT || 3000;
+    return res.data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('ChatGPT error:', error.response?.data || error.message);
+    return 'すみません、ちょっと調子が悪いみたいです。';
+  }
+}
 
-app.post('/webhook', line.middleware(config), (req, res) => {
-  Promise
-    .all(req.body.events.map(handleEvent))
-    .then(result => res.json(result));
-});
-
-const client = new line.Client(config);
-
-function handleEvent(event) {
+async function handleEvent(event) {
   if (event.type !== 'message' || event.message.type !== 'text') {
     return Promise.resolve(null);
   }
 
-  const replyText = `You said: ${event.message.text}`;
+  const userText = event.message.text;
+  const replyText = await getChatGPTResponse(userText);
 
   return client.replyMessage(event.replyToken, {
     type: 'text',
     text: replyText,
   });
 }
-
-app.listen(port, () => {
-  console.log(`Listening on ${port}`);
-});
