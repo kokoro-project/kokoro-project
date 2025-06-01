@@ -29,7 +29,7 @@ async function handleEvent(event) {
   }
 
   const userText = event.message.text;
-  const replyText = await getChatGPTResponse(userText);
+  const replyText = await getChatGPTResponse(event.message.text);
 
   return client.replyMessage(event.replyToken, {
     type: 'text',
