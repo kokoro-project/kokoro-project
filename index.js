@@ -10,8 +10,8 @@ const config = {
 
 const client = new line.Client(config);
 const app = express();
-app.use(express.json());
 app.use(line.middleware(config));
+app.use(express.json());
 
 app.post('/webhook', async (req, res) => {
   try {
