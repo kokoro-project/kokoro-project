@@ -19,39 +19,29 @@ app.post('/webhook', async (req, res) => {
   res.json(results);
 });
 
-async function handleEvent(event) {
-  if (event.type !== 'message' || event.message.type !== 'text') {
-    return Promise.resolve(null);
-  }
-
-  const userMessage = event.message.text;
-  const geminiResponse = await getGeminiResponse(userMessage);
-
-  return client.replyMessage(event.replyToken, {
-    type: 'text',
-    text: geminiResponse,
-  });
-}
-
 async function getGeminiResponse(userText) {
   try {
     const res = await axios.post(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + process.env.GEMINI_API_KEY,
       {
         contents: [{ parts: [{ text: userText }] }]
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': process.env.GEMINI_API_KEY
-        }
       }
     );
     return res.data.candidates[0].content.parts[0].text;
-  } catch (error) {
-    console.error('Gemini error:', error.response?.data || error.message);
-    return 'Geminiからの応答が取得できませんでした。';
+  } catch (err) {
+    console.error('Gemini error:', err.response?.data || err.message);
+    return 'ごめん、AIから返事が取れなかったよ。';
   }
+}
+
+async function handleEvent(event) {
+  if (event.type !== 'message' || event.message.type !== 'text') return;
+
+  const replyText = await getGeminiResponse(event.message.text);
+  return client.replyMessage(event.replyToken, {
+    type: 'text',
+    text: replyText,
+  });
 }
 
 const port = process.env.PORT || 3000;
